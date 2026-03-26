@@ -1,0 +1,193 @@
+---
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-system
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: examples
+spec:
+  owner: guests
+---
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-component
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: example-website
+  annotations:
+    backstage.io/techdocs-ref: dir:./example-docs
+spec:
+  type: website
+  lifecycle: experimental
+  owner: guests
+  system: examples
+  providesApis: [example-grpc-api]
+---
+# https://backstage.io/docs/features/software-catalog/descriptor-format#kind-api
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: example-grpc-api
+spec:
+  type: grpc
+  lifecycle: experimental
+  owner: guests
+  system: examples
+  definition: |
+    syntax = "proto3";
+
+    service Exampler {
+      rpc Example (ExampleMessage) returns (ExampleMessage) {};
+    }
+
+    message ExampleMessage {
+      string example = 1;
+    };
+---
+# Payment Platform system
+apiVersion: backstage.io/v1alpha1
+kind: System
+metadata:
+  name: payment-platform
+  description: Platform for processing payments
+spec:
+  owner: platform-team
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payment-api
+  description: Backend service that processes payments
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: payment-platform
+  providesApis:
+    - payment-rest-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: payment-frontend
+  description: Customer-facing payment UI
+spec:
+  type: website
+  lifecycle: production
+  owner: frontend-team
+  system: payment-platform
+  consumesApis:
+    - payment-rest-api
+---
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: inventory-service
+  description: Tracks product inventory and stock levels
+spec:
+  type: service
+  lifecycle: production
+  owner: platform-team
+  system: payment-platform
+---
+apiVersion: backstage.io/v1alpha1
+kind: API
+metadata:
+  name: payment-rest-api
+  description: REST API for creating and retrieving payments
+spec:
+  type: openapi
+  lifecycle: production
+  owner: platform-team
+  system: payment-platform
+  definition: |
+    openapi: "3.0.0"
+    info:
+      title: Payment API
+      version: "1.0.0"
+      description: API for processing payments
+    paths:
+      /payments:
+        post:
+          summary: Create a payment
+          operationId: createPayment
+          requestBody:
+            required: true
+            content:
+              application/json:
+                schema:
+                  type: object
+                  required:
+                    - amount
+                    - currency
+                  properties:
+                    amount:
+                      type: number
+                      format: double
+                      example: 29.99
+                    currency:
+                      type: string
+                      example: USD
+                    description:
+                      type: string
+                      example: Order #1234
+          responses:
+            "201":
+              description: Payment created
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/Payment"
+      /payments/{id}:
+        get:
+          summary: Get a payment by ID
+          operationId: getPayment
+          parameters:
+            - name: id
+              in: path
+              required: true
+              schema:
+                type: string
+                format: uuid
+          responses:
+            "200":
+              description: Payment found
+              content:
+                application/json:
+                  schema:
+                    $ref: "#/components/schemas/Payment"
+            "404":
+              description: Payment not found
+    components:
+      schemas:
+        Payment:
+          type: object
+          properties:
+            id:
+              type: string
+              format: uuid
+            amount:
+              type: number
+              format: double
+            currency:
+              type: string
+            description:
+              type: string
+            status:
+              type: string
+              enum:
+                - pending
+                - completed
+                - failed
+            createdAt:
+              type: string
+              format: date-time
+---
+apiVersion: backstage.io/v1alpha1
+kind: Resource
+metadata:
+  name: payment-db
+  description: PostgreSQL database for payment records
+spec:
+  type: database
+  lifecycle: production
+  owner: platform-team
+  system: payment-platform
